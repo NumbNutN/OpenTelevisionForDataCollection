@@ -14,6 +14,9 @@ import time
 import yaml
 from multiprocessing import Array, Process, shared_memory, Queue, Manager, Event, Semaphore
 
+# self diy visualizer
+from visualize_se3 import visualizer
+
 class VuerTeleop:
     def __init__(self, config_file_path):
         self.resolution = (720, 1280)
@@ -58,14 +61,29 @@ if __name__ == '__main__':
     teleoperator = VuerTeleop('inspire_hand.yml')
     # simulator = Sim()
 
+    visualizer = visualizer()
+
     try:
         while True:
+            '''
+            l/r pose has a size of 7, with the first 3 elements being the position and the last 4 elements being the quaternion
+            l/r qpos has a size of 12, with the first 4 elements being the quaternion of the wrist, the next 4 elements being the quaternion of the thumb, and the last 4 elements being the quaternion of the index finger
+            '''
             head_rmat, left_pose, right_pose, left_qpos, right_qpos = teleoperator.step()
             # left_img, right_img = simulator.step(head_rmat, left_pose, right_pose, left_qpos, right_qpos)
             # np.copyto(teleoperator.img_array, np.hstack((left_img, right_img)))
-            
-            #test data
+                        
+            visualizer.visualize_so3(head_rmat,scale=2.0)
+
+            # handle the l/r pose data
+            left_rot = rotations.matrix_from_quaternion(left_pose[3:])[0:3, 0:3]
+            visualizer.visualize_se3(left_rot, left_pose[0:3], scale=5.0)
             print(head_rmat)
+            right_rot = rotations.matrix_from_quaternion(right_pose[3:])[0:3, 0:3]
+            visualizer.visualize_se3(right_rot, right_pose[0:3], scale=5.0)
+
+            visualizer.step()
+            
     except KeyboardInterrupt:
         # simulator.end()
         exit(0)
