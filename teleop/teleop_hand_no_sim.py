@@ -17,6 +17,8 @@ from multiprocessing import Array, Process, shared_memory, Queue, Manager, Event
 # self diy visualizer
 from visualize_se3 import visualizer
 
+from data_storage import Saver
+
 class VuerTeleop:
     def __init__(self, config_file_path):
         self.resolution = (720, 1280)
@@ -56,12 +58,16 @@ class VuerTeleop:
 
         return head_rmat, left_pose, right_pose, left_qpos, right_qpos
 
-
+import cv2
 if __name__ == '__main__':
     teleoperator = VuerTeleop('inspire_hand.yml')
     # simulator = Sim()
 
     visualizer = visualizer()
+
+    # use time as the file name
+    Saver = Saver(f'data_{time.time()}.h5', 1000)
+
 
     try:
         while True:
@@ -72,18 +78,31 @@ if __name__ == '__main__':
             head_rmat, left_pose, right_pose, left_qpos, right_qpos = teleoperator.step()
             # left_img, right_img = simulator.step(head_rmat, left_pose, right_pose, left_qpos, right_qpos)
             # np.copyto(teleoperator.img_array, np.hstack((left_img, right_img)))
-                        
+            
+            # print(teleoperator.img_array.shape)
+            # img = teleoperator.img_array.copy()
+            # cv2.imshow('img', img)
+            # cv2.waitKey(0)
+            # print(teleoperator.img_array)
+
             visualizer.visualize_so3(head_rmat,scale=2.0)
 
             # handle the l/r pose data
             left_rot = rotations.matrix_from_quaternion(left_pose[3:])[0:3, 0:3]
             visualizer.visualize_se3(left_rot, left_pose[0:3], scale=5.0)
-            print(head_rmat)
+            # print(head_rmat)
             right_rot = rotations.matrix_from_quaternion(right_pose[3:])[0:3, 0:3]
             visualizer.visualize_se3(right_rot, right_pose[0:3], scale=5.0)
 
             visualizer.step()
             
+            if(visualizer.ok()):
+                Saver.save(head_rmat, left_pose, right_pose)
+
+            # pause for 0.01 seconds
+            time.sleep(0.01)
+            
     except KeyboardInterrupt:
         # simulator.end()
+        Saver.close()
         exit(0)

@@ -86,6 +86,10 @@ class OpenTeleVision:
             #     self.head_matrix_shared[:] = event.value["camera"]["matrix"]
             # with self.aspect_shared.get_lock():
             #     self.aspect_shared.value = event.value['camera']['aspect']
+
+            print("event.keys:", event.value.keys())
+            print("event[\"camera\"]", event.value["camera"].keys())
+            
             self.head_matrix_shared[:] = event.value["camera"]["matrix"]
             self.aspect_shared.value = event.value['camera']['aspect']
         except:
@@ -233,6 +237,7 @@ class OpenTeleVision:
             # return float(self.aspect_shared.value)
         return float(self.aspect_shared.value)
 
+import cv2
     
 if __name__ == "__main__":
     resolution = (720, 1280)
@@ -245,9 +250,17 @@ if __name__ == "__main__":
     shm_name = shm.name
     img_array = np.ndarray((img_shape[0], img_shape[1], 3), dtype=np.uint8, buffer=shm.buf)
 
-    tv = OpenTeleVision(resolution_cropped, cert_file="../cert.pem", key_file="../key.pem")
+    image_queue = Queue()
+    toggle_streaming = Event()
+
+    tv = OpenTeleVision(resolution_cropped, shm_name, image_queue, toggle_streaming,cert_file="./cert.pem", key_file="./key.pem")
     while True:
         # print(tv.left_landmarks)
         # print(tv.left_hand)
         # tv.modify_shared_image(random=True)
+
+        # show the image
+        print("1")
+        cv2.imshow("image", tv.img_array)
+
         time.sleep(1)

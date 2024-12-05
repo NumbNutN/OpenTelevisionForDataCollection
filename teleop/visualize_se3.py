@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from matplotlib.widgets import Button
+
 class visualizer:
 
     def __init__(self) -> None:
@@ -10,6 +12,23 @@ class visualizer:
 
         # Set the aspect ratio of the plot
         self.ax.set_box_aspect([1, 1, 1])
+
+        # add a button
+        # 在图形上添加一个按钮
+        self.ax_button = plt.axes([0.7, 0.01, 0.2, 0.075])  # 按钮位置
+        self.button = Button(self.ax_button, "start")
+
+        # 将按钮点击事件与回调函数绑定
+        self.button.on_clicked(self.on_button_click)
+        self._ok = False
+
+    # 按钮点击事件处理函数
+    def on_button_click(self, event):
+        print("Start to collect data.")
+        self._ok = True
+
+    def ok(self):
+        return self._ok
 
     # Visualize SE(3) transformation
     def visualize_so3(self, R, scale=1.0):
