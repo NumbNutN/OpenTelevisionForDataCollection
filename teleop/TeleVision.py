@@ -86,9 +86,6 @@ class OpenTeleVision:
             #     self.head_matrix_shared[:] = event.value["camera"]["matrix"]
             # with self.aspect_shared.get_lock():
             #     self.aspect_shared.value = event.value['camera']['aspect']
-
-            print("event.keys:", event.value.keys())
-            print("event[\"camera\"]", event.value["camera"].keys())
             
             self.head_matrix_shared[:] = event.value["camera"]["matrix"]
             self.aspect_shared.value = event.value['camera']['aspect']

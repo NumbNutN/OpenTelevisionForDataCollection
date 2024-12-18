@@ -6,8 +6,8 @@ from matplotlib.widgets import Button
 class visualizer:
 
     def __init__(self) -> None:
-        # here initialize a figure and axis
-        self.fig = plt.figure()
+        # here initialize a figure and axis, the size of the figure should be 
+        self.fig = plt.figure(figsize=(16,16))
         self.ax = self.fig.add_subplot(111, projection='3d')
 
         # Set the aspect ratio of the plot
@@ -97,6 +97,7 @@ class visualizer:
     def step(self):
         # plt.show()
         plt.pause(0.01)
+        self.ax.cla()
         pass
 
 

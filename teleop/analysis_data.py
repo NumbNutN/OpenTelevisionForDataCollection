@@ -3,8 +3,10 @@ import time
 from visualize_se3 import visualizer
 from pytransform3d import rotations
 
+data_path= "../data/"
+
 if __name__ == '__main__':
-    loader = Loader('data_1733297544.9009743.h5')
+    loader = Loader(data_path+'data_1733899301.1473432.h5')
 
     visualizer = visualizer()
     try:
@@ -13,12 +15,12 @@ if __name__ == '__main__':
             # if(not visualizer.ok()):
             #     continue
 
-            time_stamp, head_mat, left_pose, right_pose = loader.load()
-            if head_mat is None:
+            time_stamp, head_pose, left_pose, right_pose = loader.load()
+            print(type(left_pose))
+            if head_pose is None:
                 break
-            
-            head_mat = head_mat.reshape(3, 3)
-            visualizer.visualize_so3(head_mat, scale=2.0)
+            # head_rot = rotations.matrix_from_quaternion(head_pose[3:])[0:3, 0:3]
+            # visualizer.visualize_se3(head_rot,head_pose[0:3], scale=2.0)
             left_rot = rotations.matrix_from_quaternion(left_pose[3:])[0:3, 0:3]
             visualizer.visualize_se3(left_rot, left_pose[0:3], scale=5.0)
             right_rot = rotations.matrix_from_quaternion(right_pose[3:])[0:3, 0:3]
