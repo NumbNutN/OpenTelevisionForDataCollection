@@ -30,6 +30,25 @@ Immersive Active Visual Feedback</h1>
 <img src="./img/main.webp" width="80%"/>
 </p>
 
+
+
+## How to collect data
+
+We add some scripts for data collection
+
++ data_collecting.py
+A script for data collecting
+
++ data_analysis.py
+Have a view of your data
+
++ data_storge.py
+Define the hdf5 file format for data collecting
+
++ visualize_se3.py
+A class for pose visualization
+
+
 ## Introduction
 This code contains implementation for teleoperation and imitation learning of Open-TeleVision.
 

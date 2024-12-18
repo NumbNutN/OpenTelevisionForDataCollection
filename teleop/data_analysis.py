@@ -1,6 +1,6 @@
 from data_storage import Loader
 import time
-from visualize_se3 import visualizer
+from se3_visualizer import visualizer
 from pytransform3d import rotations
 
 data_path= "../data/"

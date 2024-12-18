@@ -15,7 +15,7 @@ import yaml
 from multiprocessing import Array, Process, shared_memory, Queue, Manager, Event, Semaphore
 
 # self diy visualizer
-from visualize_se3 import visualizer
+from se3_visualizer import visualizer
 
 from data_storage import Saver
 
