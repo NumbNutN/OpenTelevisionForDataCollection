@@ -25,3 +25,4 @@ torchvision==0.18.0
 tqdm==4.66.4
 vuer==0.0.32rc7
 wandb==0.17.3
+pyrealsense2==2.55.1

@@ -13,11 +13,14 @@ import argparse
 import time
 import yaml
 from multiprocessing import Array, Process, shared_memory, Queue, Manager, Event, Semaphore
+import pyrealsense2 as rs
 
 # self diy visualizer
 from se3_visualizer import visualizer
 
 from data_storage import Saver
+
+import logging
 
 class VuerTeleop:
     def __init__(self, config_file_path):
@@ -36,6 +39,35 @@ class VuerTeleop:
         self.tv = OpenTeleVision(self.resolution_cropped, self.shm.name, image_queue, toggle_streaming)
         self.processor = VuerPreprocessor()
 
+        # here for Intel Realsense pipline
+        # Configure depth and color streams
+        self.cam_pipeline = rs.pipeline()
+        self.cam_config = rs.config()
+        # Get device product line for setting a supporting resolution
+        pipeline_wrapper = rs.pipeline_wrapper(self.cam_pipeline)
+        pipeline_profile = self.cam_config.resolve(pipeline_wrapper)
+        device = pipeline_profile.get_device()
+        device_product_line = str(device.get_info(rs.camera_info.product_line))
+        found_rgb = False
+        for s in device.sensors:
+            if s.get_info(rs.camera_info.name) == 'RGB Camera':
+                found_rgb = True
+                break
+        if not found_rgb:
+            print("The demo requires Depth camera with Color sensor")
+            exit(0)
+
+        self.cam_config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+        self.cam_config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+
+        # Start streaming
+        self.cam_pipeline.start(self.cam_config)
+
+
+        # add a cv window to show the image
+        # cv2.namedWindow('img', cv2.WINDOW_AUTOSIZE)
+
+
         RetargetingConfig.set_default_urdf_dir('../assets')
         with Path(config_file_path).open('r') as f:
             cfg = yaml.safe_load(f)
@@ -45,6 +77,9 @@ class VuerTeleop:
         self.right_retargeting = right_retargeting_config.build()
 
     def step(self):
+
+        frames = self.cam_pipeline.wait_for_frames()
+
         head_mat, left_wrist_mat, right_wrist_mat, left_hand_mat, right_hand_mat = self.processor.process_fixed(self.tv)
 
         head_pose = np.concatenate([head_mat[:3, 3], rotations.quaternion_from_matrix(head_mat[:3, :3])[[1, 2, 3, 0]]])
@@ -56,19 +91,32 @@ class VuerTeleop:
         left_qpos = self.left_retargeting.retarget(left_hand_mat[tip_indices])[[4, 5, 6, 7, 10, 11, 8, 9, 0, 1, 2, 3]]
         right_qpos = self.right_retargeting.retarget(right_hand_mat[tip_indices])[[4, 5, 6, 7, 10, 11, 8, 9, 0, 1, 2, 3]]
 
-        return head_pose, left_pose, right_pose, left_qpos, right_qpos
+        # get camera frame
+        color_frame = frames.get_color_frame()
+        # Convert images to numpy arrays
+        color_image = np.asanyarray(color_frame.get_data())
+
+        # show the image
+        # cv2.imshow('img', color_image)
+        # cv2.waitKey(1)
+
+
+        return head_pose, left_pose, right_pose, left_qpos, right_qpos, color_image
 
 data_path= "../data/"
 
 import cv2
 if __name__ == '__main__':
+
+    logging.basicConfig(level=logging.DEBUG)
+
     teleoperator = VuerTeleop('inspire_hand.yml')
     # simulator = Sim()
 
     visualizer = visualizer()
 
-    # use time as the file name
-    Saver = Saver(data_path+ f'data_{time.time()}.h5', 1000)
+    # use datetime to generate a unique filename
+    Saver = Saver(data_path+ f'data_{time.strftime("%Y%m%d-%H%M%S")}.h5', 32)
 
 
     try:
@@ -77,7 +125,7 @@ if __name__ == '__main__':
             l/r pose has a size of 7, with the first 3 elements being the position and the last 4 elements being the quaternion
             l/r qpos has a size of 12, with the first 4 elements being the quaternion of the wrist, the next 4 elements being the quaternion of the thumb, and the last 4 elements being the quaternion of the index finger
             '''
-            head_pose, left_pose, right_pose, left_qpos, right_qpos = teleoperator.step()
+            head_pose, left_pose, right_pose, left_qpos, right_qpos, image = teleoperator.step()
             # left_img, right_img = simulator.step(head_rmat, left_pose, right_pose, left_qpos, right_qpos)
             # np.copyto(teleoperator.img_array, np.hstack((left_img, right_img)))
             
@@ -96,9 +144,11 @@ if __name__ == '__main__':
             # print(head_rmat)
             right_rot = rotations.matrix_from_quaternion(right_pose[3:])[0:3, 0:3]
             visualizer.visualize_se3(right_rot, right_pose[0:3], scale=5.0)
+
+            visualizer.show_img(image)
             
             if(visualizer.ok()):
-                Saver.save(head_pose, left_pose, right_pose)
+                Saver.save(head_pose, left_pose, right_pose, image)
 
             visualizer.step()
 

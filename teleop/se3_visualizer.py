@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import logging
 
 from matplotlib.widgets import Button
 
@@ -24,7 +25,7 @@ class visualizer:
 
     # 按钮点击事件处理函数
     def on_button_click(self, event):
-        print("Start to collect data.")
+        logging.info("Trigger received: start button")
         self._ok = True
 
     def ok(self):
@@ -93,6 +94,26 @@ class visualizer:
 
         # Set the legend
         # self.ax.legend()
+
+    def show_img(self, img):
+        # Define the position and size parameters
+        # on the top left corner of the figure
+        # 640 x 480    
+        image_xaxis = 0.0
+        image_yaxis = 0.7
+        image_width = 0.4
+        image_height = 0.3  # Same as width since our logo is a square
+
+        # Define the position for the image axes
+        ax_image = self.fig.add_axes([image_xaxis,
+                                image_yaxis,
+                                image_width,
+                                image_height]
+                            )
+
+        # Display the image
+        ax_image.imshow(img)
+        ax_image.axis('off')  # Remove axis of the image
 
     def step(self):
         # plt.show()

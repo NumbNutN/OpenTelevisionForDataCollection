@@ -34,6 +34,11 @@ Immersive Active Visual Feedback</h1>
 
 ## How to collect data
 
+Add a `data` directory before data collecting
+```
+mkdir data
+```
+
 We add some scripts for data collection
 
 + data_collecting.py
