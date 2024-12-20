@@ -39,6 +39,8 @@ class visualizer:
         self.button.on_clicked(self.status_flip)
         self._ok = False
 
+        # cv2.namedWindow('img', cv2.WINDOW_NORMAL)
+
     # 按钮点击事件处理函数
     def status_flip(self, event):
         self._ok = not self._ok
@@ -79,9 +81,6 @@ class visualizer:
 
     # Visualize SE(3) transformation
     def visualize_se3(self, R, t, scale=1.0):
-        # Extract rotation matrix and translation vector
-        # R = T[:3, :3]
-        # t = T[:3, 3]
 
         # Plot the coordinate frame
         self.ax.quiver(t[0], t[1], t[2], R[0, 0], R[1, 0], R[2, 0], color='r', label='x')
@@ -104,14 +103,7 @@ class visualizer:
         self.ax.set_ylabel('y')
         self.ax.set_zlabel('z')
 
-        # Set the title
-        # self.ax.set_title('SE(3) Transformation')
-
-        # Set the legend
-        # self.ax.legend()
-
     def show_img(self, img):
-
         # Display the image
         self.ax_image.imshow(img)
 
@@ -122,6 +114,3 @@ class visualizer:
         self.ax.cla()
         self.ax_image.cla()  # Clear the image plot
         pass
-
-
-

@@ -23,6 +23,9 @@ from data_storage import Saver
 import logging
 import enum
 
+import cv2
+import os
+
 class VuerTeleop:
     def __init__(self, config_file_path):
         self.resolution = (720, 1280)
@@ -44,29 +47,11 @@ class VuerTeleop:
         # Configure depth and color streams
         self.cam_pipeline = rs.pipeline()
         self.cam_config = rs.config()
-        # Get device product line for setting a supporting resolution
-        pipeline_wrapper = rs.pipeline_wrapper(self.cam_pipeline)
-        pipeline_profile = self.cam_config.resolve(pipeline_wrapper)
-        device = pipeline_profile.get_device()
-        device_product_line = str(device.get_info(rs.camera_info.product_line))
-        found_rgb = False
-        for s in device.sensors:
-            if s.get_info(rs.camera_info.name) == 'RGB Camera':
-                found_rgb = True
-                break
-        if not found_rgb:
-            print("The demo requires Depth camera with Color sensor")
-            exit(0)
 
-        self.cam_config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
         self.cam_config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-
+        self.cam_config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
         # Start streaming
-        self.cam_pipeline.start(self.cam_config)
-
-
-        # add a cv window to show the image
-        # cv2.namedWindow('img', cv2.WINDOW_AUTOSIZE)
+        self.cam_profile = self.cam_pipeline.start(self.cam_config)
 
 
         RetargetingConfig.set_default_urdf_dir('../assets')
@@ -77,9 +62,13 @@ class VuerTeleop:
         self.left_retargeting = left_retargeting_config.build()
         self.right_retargeting = right_retargeting_config.build()
 
-    def step(self):
+        self.last_image = np.zeros((480, 640, 3), dtype=np.uint8)
 
+    def step(self):
+        
+        #self.cam_playBack.resume()
         frames = self.cam_pipeline.wait_for_frames()
+        # self.cam_playBack.pause()
 
         head_mat, left_wrist_mat, right_wrist_mat, left_hand_mat, right_hand_mat = self.processor.process_fixed(self.tv)
 
@@ -94,8 +83,14 @@ class VuerTeleop:
 
         # get camera frame
         color_frame = frames.get_color_frame()
+        depth_frame = frames.get_depth_frame()
         # Convert images to numpy arrays
         color_image = np.asanyarray(color_frame.get_data())
+        if(self.last_image == color_image).all():
+            print("The image is the same!")
+        
+        self.last_image = color_image
+        depth_image = np.asanyarray(depth_frame.get_data())
 
         # rotation the image 180 degree
         color_image = np.rot90(color_image, 2)
@@ -113,26 +108,19 @@ class Status(enum.Enum):
     WAITING = 2
 
 
-
-import cv2
-import os
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     teleoperator = VuerTeleop('inspire_hand.yml')
     # simulator = Sim()
 
     visualizer = visualizer()
-
-    cnt = 0
-
-    status = Status.WAITING
-
     saver = Saver()
 
+    cnt = 0
+    status = Status.WAITING
     last_time = time.time()
-
     data_path = f'../data_{time.strftime("%Y%m%d-%H%M%S")}/'
     os.makedirs(data_path, exist_ok=True)
 
@@ -141,6 +129,10 @@ if __name__ == '__main__':
     right_pose_lst = []
     img_lst = []
 
+    black_img = np.zeros((480, 640, 3), dtype=np.uint8)
+
+    # visualize the image using cv2
+    # cv2.namedWindow('img', cv2.WINDOW_AUTOSIZE)
     
     try:
         while True:
@@ -153,11 +145,8 @@ if __name__ == '__main__':
             # left_img, right_img = simulator.step(head_rmat, left_pose, right_pose, left_qpos, right_qpos)
             # np.copyto(teleoperator.img_array, np.hstack((left_img, right_img)))
             
-            # print(teleoperator.img_array.shape)
-            # img = teleoperator.img_array.copy()
             # cv2.imshow('img', img)
             # cv2.waitKey(0)
-            # print(teleoperator.img_array)
 
             head_rot = rotations.matrix_from_quaternion(head_pose[3:])[0:3, 0:3]
             
@@ -171,21 +160,23 @@ if __name__ == '__main__':
             visualizer.visualize_se3(left_rot, left_pose[0:3], scale=5.0)
             visualizer.visualize_se3(right_rot, right_pose[0:3], scale=5.0)
 
-
             head_pose_lst.append(head_pose)
             left_pose_lst.append(left_pose)
             right_pose_lst.append(right_pose)
-            img_lst.append(image)
+            # img_lst.append(image)
 
-            if(not (cnt % 2)):
+            if(cnt % 2 == 0):
+                # render a black image
+                visualizer.show_img(black_img)
+            else:
                 visualizer.show_img(image)
+                
 
             # calcualte the frequency real time
             freq = 1/(time.time() - last_time)
             last_time = time.time()
             if(cnt % 20 == 0):
                 print(f"the frequency is {freq} Hz")
-
 
             if(status == Status.WAITING and visualizer.ok()):
                 # use datetime to generate a unique filename
@@ -207,10 +198,9 @@ if __name__ == '__main__':
 
             visualizer.step()
 
+            # cv2.imshow('img', image)
+            # cv2.waitKey(1)
             cnt += 1
-
-            # pause for 0.01 seconds
-            time.sleep(0.01)
             
     except KeyboardInterrupt:
         # simulator.end()

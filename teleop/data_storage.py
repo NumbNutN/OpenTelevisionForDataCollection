@@ -59,14 +59,14 @@ class Saver:
             logging.warning("Data storage is full!")
             return
     
-        # if(self.cnt == self.size):
-        #     self.size =  min(self.size*2, self.max_size)
-        #     logging.info(f"Data storage resize to {self.size}.")
-        #     self.file[head_pose_name].resize((self.size, 7))
-        #     self.file[left_pose_name].resize((self.size, 7))
-        #     self.file[right_pose_name].resize((self.size, 7))
-        #     self.file[time_stamp_name].resize((self.size,))
-        #     self.file[img_front_name].resize((self.size, 480, 640, 3))
+        if(self.cnt == self.size):
+            self.size =  min(self.size*2, self.max_size)
+            logging.info(f"Data storage resize to {self.size}.")
+            self.file[head_pose_name].resize((self.size, 7))
+            self.file[left_pose_name].resize((self.size, 7))
+            self.file[right_pose_name].resize((self.size, 7))
+            self.file[time_stamp_name].resize((self.size,))
+            self.file[img_front_name].resize((self.size, 480, 640, 3))
 
         self.file[time_stamp_name][self.cnt] = timestamp
         self.file[head_pose_name][self.cnt] = head_pose
