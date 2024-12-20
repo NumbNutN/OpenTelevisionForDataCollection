@@ -19,14 +19,29 @@ class visualizer:
         self.ax_button = plt.axes([0.7, 0.01, 0.2, 0.075])  # 按钮位置
         self.button = Button(self.ax_button, "start")
 
+        # Define the position and size parameters
+        # on the top left corner of the figure
+        # 640 x 480    
+        image_xaxis = 0.0
+        image_yaxis = 0.7
+        image_width = 0.4
+        image_height = 0.3  # Same as width since our logo is a square
+
+        # Define the position for the image axes
+        self.ax_image = self.fig.add_axes([image_xaxis,
+                                image_yaxis,
+                                image_width,
+                                image_height]
+                            )
+        self.ax_image.axis('off')  # Remove axis of the image
+
         # 将按钮点击事件与回调函数绑定
-        self.button.on_clicked(self.on_button_click)
+        self.button.on_clicked(self.status_flip)
         self._ok = False
 
     # 按钮点击事件处理函数
-    def on_button_click(self, event):
-        logging.info("Trigger received: start button")
-        self._ok = True
+    def status_flip(self, event):
+        self._ok = not self._ok
 
     def ok(self):
         return self._ok
@@ -96,29 +111,16 @@ class visualizer:
         # self.ax.legend()
 
     def show_img(self, img):
-        # Define the position and size parameters
-        # on the top left corner of the figure
-        # 640 x 480    
-        image_xaxis = 0.0
-        image_yaxis = 0.7
-        image_width = 0.4
-        image_height = 0.3  # Same as width since our logo is a square
-
-        # Define the position for the image axes
-        ax_image = self.fig.add_axes([image_xaxis,
-                                image_yaxis,
-                                image_width,
-                                image_height]
-                            )
 
         # Display the image
-        ax_image.imshow(img)
-        ax_image.axis('off')  # Remove axis of the image
+        self.ax_image.imshow(img)
+
 
     def step(self):
         # plt.show()
         plt.pause(0.01)
         self.ax.cla()
+        self.ax_image.cla()  # Clear the image plot
         pass
 
 

@@ -21,6 +21,7 @@ from se3_visualizer import visualizer
 from data_storage import Saver
 
 import logging
+import enum
 
 class VuerTeleop:
     def __init__(self, config_file_path):
@@ -96,16 +97,25 @@ class VuerTeleop:
         # Convert images to numpy arrays
         color_image = np.asanyarray(color_frame.get_data())
 
+        # rotation the image 180 degree
+        color_image = np.rot90(color_image, 2)
+
         # show the image
         # cv2.imshow('img', color_image)
         # cv2.waitKey(1)
 
 
         return head_pose, left_pose, right_pose, left_qpos, right_qpos, color_image
+    
+class Status(enum.Enum):
+    INIT = 0
+    COLLECTING = 1
+    WAITING = 2
 
-data_path= "../data/"
+
 
 import cv2
+import os
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.DEBUG)
@@ -115,10 +125,23 @@ if __name__ == '__main__':
 
     visualizer = visualizer()
 
-    # use datetime to generate a unique filename
-    Saver = Saver(data_path+ f'data_{time.strftime("%Y%m%d-%H%M%S")}.h5', 32)
+    cnt = 0
 
+    status = Status.WAITING
 
+    saver = Saver()
+
+    last_time = time.time()
+
+    data_path = f'../data_{time.strftime("%Y%m%d-%H%M%S")}/'
+    os.makedirs(data_path, exist_ok=True)
+
+    head_pose_lst = []
+    left_pose_lst = []
+    right_pose_lst = []
+    img_lst = []
+
+    
     try:
         while True:
             '''
@@ -126,6 +149,7 @@ if __name__ == '__main__':
             l/r qpos has a size of 12, with the first 4 elements being the quaternion of the wrist, the next 4 elements being the quaternion of the thumb, and the last 4 elements being the quaternion of the index finger
             '''
             head_pose, left_pose, right_pose, left_qpos, right_qpos, image = teleoperator.step()
+            
             # left_img, right_img = simulator.step(head_rmat, left_pose, right_pose, left_qpos, right_qpos)
             # np.copyto(teleoperator.img_array, np.hstack((left_img, right_img)))
             
@@ -136,26 +160,59 @@ if __name__ == '__main__':
             # print(teleoperator.img_array)
 
             head_rot = rotations.matrix_from_quaternion(head_pose[3:])[0:3, 0:3]
-            visualizer.visualize_se3(head_rot, head_pose[0:3], scale=2.0)
-
+            
             # handle the l/r pose data
             left_rot = rotations.matrix_from_quaternion(left_pose[3:])[0:3, 0:3]
-            visualizer.visualize_se3(left_rot, left_pose[0:3], scale=5.0)
+            
             # print(head_rmat)
             right_rot = rotations.matrix_from_quaternion(right_pose[3:])[0:3, 0:3]
+
+            visualizer.visualize_se3(head_rot, head_pose[0:3], scale=2.0)
+            visualizer.visualize_se3(left_rot, left_pose[0:3], scale=5.0)
             visualizer.visualize_se3(right_rot, right_pose[0:3], scale=5.0)
 
-            visualizer.show_img(image)
+
+            head_pose_lst.append(head_pose)
+            left_pose_lst.append(left_pose)
+            right_pose_lst.append(right_pose)
+            img_lst.append(image)
+
+            if(not (cnt % 2)):
+                visualizer.show_img(image)
+
+            # calcualte the frequency real time
+            freq = 1/(time.time() - last_time)
+            last_time = time.time()
+            if(cnt % 20 == 0):
+                print(f"the frequency is {freq} Hz")
+
+
+            if(status == Status.WAITING and visualizer.ok()):
+                # use datetime to generate a unique filename
+                saver.create(data_path+ f'data_{time.strftime("%Y%m%d-%H%M%S")}.h5', 1024)
+                status = Status.COLLECTING
+                head_pose_lst = []
+                left_pose_lst = []
+                right_pose_lst = []
+                img_lst = []
             
-            if(visualizer.ok()):
-                Saver.save(head_pose, left_pose, right_pose, image)
+            if(status == Status.COLLECTING and visualizer.ok()):
+                # saver.save(head_pose, left_pose, right_pose, image)
+                pass
+
+            if(status == Status.COLLECTING and not visualizer.ok()):                
+                saver.save_once(np.array(head_pose_lst), np.array(left_pose_lst), np.array(right_pose_lst), np.array(img_lst))
+                saver.close()
+                status = Status.WAITING
 
             visualizer.step()
+
+            cnt += 1
 
             # pause for 0.01 seconds
             time.sleep(0.01)
             
     except KeyboardInterrupt:
         # simulator.end()
-        Saver.close()
+        # Saver.close()
         exit(0)

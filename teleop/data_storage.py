@@ -13,7 +13,11 @@ time_stamp_name = "time_stamp"
 
 class Saver:
 
-    def __init__(self, filename, init_size,max_size=10000):
+    def __init__(self):
+        pass
+
+
+    def create(self, filename, init_size,max_size=10000):
         self.filename = filename
         self.file = h5py.File(filename, 'w')
         self.size = init_size
@@ -35,6 +39,8 @@ class Saver:
                                  compression_opts=8,
                                  dtype='u1')
         
+        logging.info(f"Data storage created with size {init_size}.")
+        
 
     def close(self):
         logging.info(f"Data storage saved to {self.filename}, with totally {self.cnt} samples. Time cost: {time.time()-self.file[time_stamp_name][0]}s")
@@ -53,14 +59,14 @@ class Saver:
             logging.warning("Data storage is full!")
             return
     
-        if(self.cnt == self.size):
-            self.size =  min(self.size*2, self.max_size)
-            logging.info(f"Data storage resize to {self.size}.")
-            self.file[head_pose_name].resize((self.size, 7))
-            self.file[left_pose_name].resize((self.size, 7))
-            self.file[right_pose_name].resize((self.size, 7))
-            self.file[time_stamp_name].resize((self.size,))
-            self.file[img_front_name].resize((self.size, 480, 640, 3))
+        # if(self.cnt == self.size):
+        #     self.size =  min(self.size*2, self.max_size)
+        #     logging.info(f"Data storage resize to {self.size}.")
+        #     self.file[head_pose_name].resize((self.size, 7))
+        #     self.file[left_pose_name].resize((self.size, 7))
+        #     self.file[right_pose_name].resize((self.size, 7))
+        #     self.file[time_stamp_name].resize((self.size,))
+        #     self.file[img_front_name].resize((self.size, 480, 640, 3))
 
         self.file[time_stamp_name][self.cnt] = timestamp
         self.file[head_pose_name][self.cnt] = head_pose
@@ -72,6 +78,13 @@ class Saver:
         self.file[img_front_name][self.cnt] = image
 
         self.cnt += 1
+
+    def save_once(self, head_pose, left_pose, right_pose, image):
+        size = head_pose.shape[0]
+        self.file[head_pose_name][0:size] = head_pose
+        self.file[left_pose_name][0:size] = left_pose
+        self.file[right_pose_name][0:size] = right_pose
+        self.file[img_front_name][0:size] = image
 
 class Loader:
 
@@ -96,3 +109,10 @@ class Loader:
         img = self.file[img_front_name][self.index]
         self.index += 1
         return time_stamp, head_pose, left_pose, right_pose, img
+    
+    def load_once(self):
+        head_pose = self.file[head_pose_name][:]
+        left_pose = self.file[left_pose_name][:]
+        right_pose = self.file[right_pose_name][:]
+        img = self.file[img_front_name][:]
+        return head_pose, left_pose, right_pose, img
