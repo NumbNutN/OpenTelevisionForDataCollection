@@ -13,3 +13,4 @@ __MACOSX/
 *.png
 
 data/
+data_*/

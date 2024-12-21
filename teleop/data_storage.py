@@ -31,13 +31,21 @@ class Saver:
         # timeStamp
         self.file.create_dataset(TIME_STAMP_KEY, (init_size,), maxshape=(None,), dtype='f')
 
-        # image bytes in mem
-        dt = h5py.vlen_dtype(np.dtype('uint8'))
+        # image raw data
         self.file.create_dataset(IMG_FRONT_KEY, 
-                                 (init_size,), 
-                                 maxshape=(None,), 
+                                 (init_size, 480, 640, 3), 
+                                 maxshape=(None, 480, 640, 3), 
                                  compression="gzip",
-                                 dtype=h5py.string_dtype())
+                                 chunks=True,
+                                 dtype='uint8')
+        
+        # image bytes stream
+        # self.file.create_dataset(IMG_FRONT_KEY, 
+        #                         (init_size,), 
+        #                         maxshape=(None,), 
+        #                         dtype='',
+        #                         chunks=True,
+        #                         )
         
         logging.info(f"Data storage created with size {init_size}.")
         
@@ -47,7 +55,7 @@ class Saver:
         self.file.close()
     
 
-    def save(self, head_pose, left_pose, right_pose, image):
+    def save(self, head_pose, left_pose, right_pose):
         '''
             store data included:
             # - head_mat (3x3)
@@ -76,20 +84,32 @@ class Saver:
         self.file[LEFT_POSE_KEY][self.cnt] = left_pose
         self.file[RIGHT_POSE_KEY][self.cnt] = right_pose
 
-        _, encoded_image = cv2.imencode('.jpg', image)
-        byte_data = encoded_image.tobytes()
-        print(f"types: {type(byte_data)}, size: {len(byte_data)}")
-        self.file[IMG_FRONT_KEY][self.cnt] = byte_data
-
         self.cnt += 1
 
+    def save_image_encoded(self, image):
+        # encode into bytes stream
+        _, encoded_image = cv2.imencode('.jpg', image)
+        byte_data = encoded_image.tobytes()
+        # print(f"types: {type(byte_data)}, size: {len(byte_data)}")
+        self.file[IMG_FRONT_KEY][self.cnt] = byte_data
+
+        # store raw data
+        self.file[IMG_FRONT_KEY][self.cnt] = image
+
     def save_once(self, head_poses, left_poses, right_poses, images):
+
         size = head_poses.shape[0]
         self.file[HEAD_POSE_KEY][0:size] = head_poses
         self.file[LEFT_POSE_KEY][0:size] = left_poses
         self.file[RIGHT_POSE_KEY][0:size] = right_poses
+
+        # raw image data
         self.file[IMG_FRONT_KEY][0:size] = images
 
+    def save_images_once(self, images):
+        num = images.shape[0]
+        # print(f"save images with number {num}")
+        self.file[IMG_FRONT_KEY][0:num] = images
 
 class Loader:
 
@@ -110,14 +130,12 @@ class Loader:
         left_pose = self.file[LEFT_POSE_KEY][self.index]
         right_pose = self.file[RIGHT_POSE_KEY][self.index]
         time_stamp = self.file[TIME_STAMP_KEY][self.index]
-
-        data_bytes = self.file[IMG_FRONT_KEY][self.index][:]
         
-        print(f"types: {type(data_bytes)}, size: {len(data_bytes)}")
-        if(data_bytes is None):
-            print("bytes stream over")
-            return None, None, None, None
-        img = cv2.imdecode(np.frombuffer(data_bytes, np.uint8), cv2.IMREAD_COLOR)
+        # decode the bytes stream
+        # data_bytes = self.file[IMG_FRONT_KEY][self.index][:]
+        # img = cv2.imdecode(np.frombuffer(data_bytes, np.uint8), cv2.IMREAD_COLOR)
+
+        img = self.file[IMG_FRONT_KEY][self.index][:]
 
         self.index += 1
         return time_stamp, head_pose, left_pose, right_pose, img

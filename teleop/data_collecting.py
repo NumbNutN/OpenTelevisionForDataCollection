@@ -28,6 +28,8 @@ import os
 import io
 import threading
 
+from collections import deque
+
 class VuerTeleop:
     def __init__(self, config_file_path):
         self.resolution = (720, 1280)
@@ -129,6 +131,9 @@ if __name__ == '__main__':
     ok = False
     first = True
 
+    # images deque
+    images = deque()
+
     # vis_thread = threading.Thread(target=visualization_thread, args=(visualizer,))
     # vis_thread.start()
     
@@ -151,6 +156,8 @@ if __name__ == '__main__':
             # print(head_rmat)
             right_rot = rotations.matrix_from_quaternion(right_pose[3:])[0:3, 0:3]
 
+            # print(f"head pose: {left_pose}")
+
             #! visualize images   ----------  decline the frequency
 
             visualizer.visualize_se3(head_rot, head_pose[0:3], scale=2.0)
@@ -172,7 +179,8 @@ if __name__ == '__main__':
                     data_path = f'../data_{time.strftime("%Y%m%d-%H%M%S")}/'
                     os.makedirs(data_path, exist_ok=True)
                     first = False
-                    
+                
+                images.clear()
                 # use datetime to generate a unique filename
                 saver.create(data_path+ f'data_{time.strftime("%Y%m%d-%H%M%S")}.h5', 1024)
                 status = Status.COLLECTING
@@ -180,11 +188,12 @@ if __name__ == '__main__':
             if(status == Status.COLLECTING and ok):
                 # as image data is too large, we use jpg format to save the image
                 #! IO operation  ----------  decline the frequency
-                saver.save(head_pose, left_pose, right_pose, image)
+                saver.save(head_pose, left_pose, right_pose)
+                images.append(image)
                 pass
 
             if(status == Status.COLLECTING and not ok):                
-                #saver.save_once(np.array(head_pose_lst), np.array(left_pose_lst), np.array(right_pose_lst), np.array(img_lst))
+                saver.save_images_once(np.array(images))
                 saver.close()
                 status = Status.WAITING
 

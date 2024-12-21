@@ -23,7 +23,7 @@ class OpenTeleVision:
         if stream_mode == "image":
             existing_shm = shared_memory.SharedMemory(name=shm_name)
             self.img_array = np.ndarray((self.img_shape[0], self.img_shape[1], 3), dtype=np.uint8, buffer=existing_shm.buf)
-            # self.app.spawn(start=False)(self.main_image)
+            self.app.spawn(start=False)(self.main_image)
         elif stream_mode == "webrtc":
             self.app.spawn(start=False)(self.main_webrtc)
         else:
