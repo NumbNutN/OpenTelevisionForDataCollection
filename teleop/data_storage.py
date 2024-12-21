@@ -1,14 +1,14 @@
 import h5py
 import time
 import cv2
-
+import numpy as np
 import logging
 
-head_pose_name = "head_pose"
-left_pose_name = "left_pose"
-right_pose_name = "right_pose"
-img_front_name = "img_front"
-time_stamp_name = "time_stamp"
+HEAD_POSE_KEY = "head_pose"
+LEFT_POSE_KEY = "left_pose"
+RIGHT_POSE_KEY = "right_pose"
+IMG_FRONT_KEY = "img_front"
+TIME_STAMP_KEY = "time_stamp"
 
 
 class Saver:
@@ -25,32 +25,35 @@ class Saver:
         self.cnt = 0
 
         # create dataset with resizeable shape
-        self.file.create_dataset(head_pose_name, (init_size, 7), maxshape=(None, 7), dtype='f')
-        self.file.create_dataset(left_pose_name, (init_size, 7), maxshape=(None, 7), dtype='f')
-        self.file.create_dataset(right_pose_name, (init_size, 7), maxshape=(None, 7), dtype='f')
+        self.file.create_dataset(HEAD_POSE_KEY, (init_size, 7), maxshape=(None, 7), dtype='f')
+        self.file.create_dataset(LEFT_POSE_KEY, (init_size, 7), maxshape=(None, 7), dtype='f')
+        self.file.create_dataset(RIGHT_POSE_KEY, (init_size, 7), maxshape=(None, 7), dtype='f')
         # timeStamp
-        self.file.create_dataset(time_stamp_name, (init_size,), maxshape=(None,), dtype='f')
+        self.file.create_dataset(TIME_STAMP_KEY, (init_size,), maxshape=(None,), dtype='f')
 
         # image bytes in mem
-        self.file.create_dataset(img_front_name, 
-                                 (init_size, 480, 640, 3), 
-                                 maxshape=(None, 480, 640, 3), 
+        dt = h5py.vlen_dtype(np.dtype('uint8'))
+        self.file.create_dataset(IMG_FRONT_KEY, 
+                                 (init_size,), 
+                                 maxshape=(None,), 
                                  compression="gzip",
-                                 compression_opts=8,
-                                 dtype='u1')
+                                 dtype=h5py.string_dtype())
         
         logging.info(f"Data storage created with size {init_size}.")
         
 
     def close(self):
-        logging.info(f"Data storage saved to {self.filename}, with totally {self.cnt} samples. Time cost: {time.time()-self.file[time_stamp_name][0]}s")
+        logging.info(f"Data storage saved to {self.filename}, with totally {self.cnt} samples. Time cost: {time.time()-self.file[TIME_STAMP_KEY][0]}s")
         self.file.close()
     
-    # store data included:
-    # - head_mat (3x3)
-    # - left_pose (7 elements, first 3 are position, last 4 are quaternion)
-    # - right_pose (7 elements, first 3 are position, last 4 are quaternion)
+
     def save(self, head_pose, left_pose, right_pose, image):
+        '''
+            store data included:
+            # - head_mat (3x3)
+            # - left_pose (7 elements, first 3 are position, last 4 are quaternion)
+            # - right_pose (7 elements, first 3 are position, last 4 are quaternion)
+        '''
 
         # 生成当前时间戳，精确到毫秒
         timestamp = time.time()
@@ -62,36 +65,38 @@ class Saver:
         if(self.cnt == self.size):
             self.size =  min(self.size*2, self.max_size)
             logging.info(f"Data storage resize to {self.size}.")
-            self.file[head_pose_name].resize((self.size, 7))
-            self.file[left_pose_name].resize((self.size, 7))
-            self.file[right_pose_name].resize((self.size, 7))
-            self.file[time_stamp_name].resize((self.size,))
-            self.file[img_front_name].resize((self.size, 480, 640, 3))
+            self.file[HEAD_POSE_KEY].resize((self.size, 7))
+            self.file[LEFT_POSE_KEY].resize((self.size, 7))
+            self.file[RIGHT_POSE_KEY].resize((self.size, 7))
+            self.file[TIME_STAMP_KEY].resize((self.size,))
+            self.file[IMG_FRONT_KEY].resize((self.size,))
 
-        self.file[time_stamp_name][self.cnt] = timestamp
-        self.file[head_pose_name][self.cnt] = head_pose
-        self.file[left_pose_name][self.cnt] = left_pose
-        self.file[right_pose_name][self.cnt] = right_pose
+        self.file[TIME_STAMP_KEY][self.cnt] = timestamp
+        self.file[HEAD_POSE_KEY][self.cnt] = head_pose
+        self.file[LEFT_POSE_KEY][self.cnt] = left_pose
+        self.file[RIGHT_POSE_KEY][self.cnt] = right_pose
 
-        # _, encoded_image = cv2.imencode('.jpg', image)
-        # byte_data = encoded_image.tobytes()
-        self.file[img_front_name][self.cnt] = image
+        _, encoded_image = cv2.imencode('.jpg', image)
+        byte_data = encoded_image.tobytes()
+        print(f"types: {type(byte_data)}, size: {len(byte_data)}")
+        self.file[IMG_FRONT_KEY][self.cnt] = byte_data
 
         self.cnt += 1
 
-    def save_once(self, head_pose, left_pose, right_pose, image):
-        size = head_pose.shape[0]
-        self.file[head_pose_name][0:size] = head_pose
-        self.file[left_pose_name][0:size] = left_pose
-        self.file[right_pose_name][0:size] = right_pose
-        self.file[img_front_name][0:size] = image
+    def save_once(self, head_poses, left_poses, right_poses, images):
+        size = head_poses.shape[0]
+        self.file[HEAD_POSE_KEY][0:size] = head_poses
+        self.file[LEFT_POSE_KEY][0:size] = left_poses
+        self.file[RIGHT_POSE_KEY][0:size] = right_poses
+        self.file[IMG_FRONT_KEY][0:size] = images
+
 
 class Loader:
 
     def __init__(self, filename):
         self.filename = filename
         self.file = h5py.File(filename, 'r')
-        self.times = self.file[head_pose_name].shape[0]
+        self.times = self.file[HEAD_POSE_KEY].shape[0]
         self.index = 0
 
     def close(self):
@@ -101,18 +106,25 @@ class Loader:
         if(self.index >= self.times):
             print("Data has been loaded!")
             return None, None, None, None
-        head_pose = self.file[head_pose_name][self.index]
-        left_pose = self.file[left_pose_name][self.index]
-        right_pose = self.file[right_pose_name][self.index]
-        time_stamp = self.file[time_stamp_name][self.index]
+        head_pose = self.file[HEAD_POSE_KEY][self.index]
+        left_pose = self.file[LEFT_POSE_KEY][self.index]
+        right_pose = self.file[RIGHT_POSE_KEY][self.index]
+        time_stamp = self.file[TIME_STAMP_KEY][self.index]
 
-        img = self.file[img_front_name][self.index]
+        data_bytes = self.file[IMG_FRONT_KEY][self.index][:]
+        
+        print(f"types: {type(data_bytes)}, size: {len(data_bytes)}")
+        if(data_bytes is None):
+            print("bytes stream over")
+            return None, None, None, None
+        img = cv2.imdecode(np.frombuffer(data_bytes, np.uint8), cv2.IMREAD_COLOR)
+
         self.index += 1
         return time_stamp, head_pose, left_pose, right_pose, img
     
     def load_once(self):
-        head_pose = self.file[head_pose_name][:]
-        left_pose = self.file[left_pose_name][:]
-        right_pose = self.file[right_pose_name][:]
-        img = self.file[img_front_name][:]
+        head_pose = self.file[HEAD_POSE_KEY][:]
+        left_pose = self.file[LEFT_POSE_KEY][:]
+        right_pose = self.file[RIGHT_POSE_KEY][:]
+        img = self.file[IMG_FRONT_KEY][:]
         return head_pose, left_pose, right_pose, img

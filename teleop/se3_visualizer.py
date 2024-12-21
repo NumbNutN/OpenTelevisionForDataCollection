@@ -8,7 +8,7 @@ class visualizer:
 
     def __init__(self) -> None:
         # here initialize a figure and axis, the size of the figure should be 
-        self.fig = plt.figure(figsize=(16,16))
+        self.fig = plt.figure(figsize=(8,8))
         self.ax = self.fig.add_subplot(111, projection='3d')
 
         # Set the aspect ratio of the plot
@@ -110,7 +110,7 @@ class visualizer:
 
     def step(self):
         # plt.show()
-        plt.pause(0.01)
+        plt.pause(0.001)
         self.ax.cla()
         self.ax_image.cla()  # Clear the image plot
         pass

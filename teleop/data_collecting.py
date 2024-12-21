@@ -25,6 +25,8 @@ import enum
 
 import cv2
 import os
+import io
+import threading
 
 class VuerTeleop:
     def __init__(self, config_file_path):
@@ -95,10 +97,8 @@ class VuerTeleop:
         # rotation the image 180 degree
         color_image = np.rot90(color_image, 2)
 
-        # show the image
-        # cv2.imshow('img', color_image)
-        # cv2.waitKey(1)
-
+        # from bgr to rgb
+        color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
 
         return head_pose, left_pose, right_pose, left_qpos, right_qpos, color_image
     
@@ -106,6 +106,10 @@ class Status(enum.Enum):
     INIT = 0
     COLLECTING = 1
     WAITING = 2
+
+
+def visualization_thread(visualizer):
+    visualizer.step()
 
 
 if __name__ == '__main__':
@@ -121,18 +125,12 @@ if __name__ == '__main__':
     cnt = 0
     status = Status.WAITING
     last_time = time.time()
-    data_path = f'../data_{time.strftime("%Y%m%d-%H%M%S")}/'
-    os.makedirs(data_path, exist_ok=True)
 
-    head_pose_lst = []
-    left_pose_lst = []
-    right_pose_lst = []
-    img_lst = []
+    ok = False
+    first = True
 
-    black_img = np.zeros((480, 640, 3), dtype=np.uint8)
-
-    # visualize the image using cv2
-    # cv2.namedWindow('img', cv2.WINDOW_AUTOSIZE)
+    # vis_thread = threading.Thread(target=visualization_thread, args=(visualizer,))
+    # vis_thread.start()
     
     try:
         while True:
@@ -144,9 +142,6 @@ if __name__ == '__main__':
             
             # left_img, right_img = simulator.step(head_rmat, left_pose, right_pose, left_qpos, right_qpos)
             # np.copyto(teleoperator.img_array, np.hstack((left_img, right_img)))
-            
-            # cv2.imshow('img', img)
-            # cv2.waitKey(0)
 
             head_rot = rotations.matrix_from_quaternion(head_pose[3:])[0:3, 0:3]
             
@@ -156,21 +151,15 @@ if __name__ == '__main__':
             # print(head_rmat)
             right_rot = rotations.matrix_from_quaternion(right_pose[3:])[0:3, 0:3]
 
+            #! visualize images   ----------  decline the frequency
+
             visualizer.visualize_se3(head_rot, head_pose[0:3], scale=2.0)
             visualizer.visualize_se3(left_rot, left_pose[0:3], scale=5.0)
             visualizer.visualize_se3(right_rot, right_pose[0:3], scale=5.0)
+            visualizer.show_img(image)
+            visualizer.step()
 
-            head_pose_lst.append(head_pose)
-            left_pose_lst.append(left_pose)
-            right_pose_lst.append(right_pose)
-            # img_lst.append(image)
-
-            if(cnt % 2 == 0):
-                # render a black image
-                visualizer.show_img(black_img)
-            else:
-                visualizer.show_img(image)
-                
+            ok = visualizer.ok()
 
             # calcualte the frequency real time
             freq = 1/(time.time() - last_time)
@@ -178,28 +167,27 @@ if __name__ == '__main__':
             if(cnt % 20 == 0):
                 print(f"the frequency is {freq} Hz")
 
-            if(status == Status.WAITING and visualizer.ok()):
+            if(status == Status.WAITING and ok):
+                if(first):
+                    data_path = f'../data_{time.strftime("%Y%m%d-%H%M%S")}/'
+                    os.makedirs(data_path, exist_ok=True)
+                    first = False
+                    
                 # use datetime to generate a unique filename
                 saver.create(data_path+ f'data_{time.strftime("%Y%m%d-%H%M%S")}.h5', 1024)
                 status = Status.COLLECTING
-                head_pose_lst = []
-                left_pose_lst = []
-                right_pose_lst = []
-                img_lst = []
             
-            if(status == Status.COLLECTING and visualizer.ok()):
-                # saver.save(head_pose, left_pose, right_pose, image)
+            if(status == Status.COLLECTING and ok):
+                # as image data is too large, we use jpg format to save the image
+                #! IO operation  ----------  decline the frequency
+                saver.save(head_pose, left_pose, right_pose, image)
                 pass
 
-            if(status == Status.COLLECTING and not visualizer.ok()):                
-                saver.save_once(np.array(head_pose_lst), np.array(left_pose_lst), np.array(right_pose_lst), np.array(img_lst))
+            if(status == Status.COLLECTING and not ok):                
+                #saver.save_once(np.array(head_pose_lst), np.array(left_pose_lst), np.array(right_pose_lst), np.array(img_lst))
                 saver.close()
                 status = Status.WAITING
 
-            visualizer.step()
-
-            # cv2.imshow('img', image)
-            # cv2.waitKey(1)
             cnt += 1
             
     except KeyboardInterrupt:
